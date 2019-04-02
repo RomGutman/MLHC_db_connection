@@ -1,3 +1,4 @@
+import os
 from configparser import ConfigParser
 
 import psycopg2
@@ -20,6 +21,7 @@ class LoadData:
         self._ssh_password = self._config['ssh']['password']
         self._server_host = self._config['ssh']['host']
         self._ssh_port = self._config.getint('ssh', 'port')
+        self.default_location = os.path.abspath(os.curdir)
 
     def init_config(self, config_name):
         """
@@ -32,27 +34,13 @@ class LoadData:
         self._config = ConfigParser()
         self._config.read(config_name)
 
-    @property
-    def con(self):
-        """
-
-        :return:
-        """
-        if self._con is not None:
-            return self._con
-        self._con = psycopg2.connect(dbname=self._db_name,
-                                     user=self._db_username,
-                                     password=self._db_password,
-                                     host=self._sqlhost,
-                                     port=self._sqlport)
-        return self._con
-
     def query_db(self, query, params=None):
         """
+        query the database
 
-        :param params:
-        :param query:
-        :return:
+        :param dict params: the params to be add to the query in the form of {param_name: value}
+        :param str query: The sql query in a string format
+        :return: Data-frame with the result of the query
         """
         with SSHTunnelForwarder(
                 (self._server_host, self._ssh_port),
@@ -68,3 +56,20 @@ class LoadData:
                                     port=server.local_bind_port)
             tr = pd.read_sql_query(query, _con, params=params)
         return tr
+
+    def query_and_save(self, query, params=None, location=os.curdir, file_name='result'):
+        """
+        this method queries the database and saves it to csv instead of returning the actual pandas data-frame
+
+        :param dict params: the params to add to the query in the form of {param_name: value}
+        :param str query: The sql query in a string format
+        :param str location: path to where to save the query
+        :param file_name: the file name of the output csv
+        :return: None
+        """
+        try:
+            assert not file_name.endswith('.csv')
+        except AssertionError:
+            raise SyntaxError("The file name should not contain 'csv' ending ")
+        df = self.query_db(query, params)
+        df.to_csv(os.path.join(location, f"{file_name}.csv"))
