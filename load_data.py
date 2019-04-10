@@ -42,6 +42,7 @@ class LoadData:
         :param str query: The sql query in a string format
         :return: Data-frame with the result of the query
         """
+        SSHTunnelForwarder.daemon_forward_servers = True    # fix problems with python >= 3.7
         with SSHTunnelForwarder(
                 (self._server_host, self._ssh_port),
                 ssh_username=self._ssh_username,
@@ -54,7 +55,7 @@ class LoadData:
                                     password=self._db_password,
                                     host=self._sqlhost,
                                     port=server.local_bind_port)
-            tr = pd.read_sql_query(query, _con, params=params)
+            tr = pd.read_sql(query, _con, params=params)
         return tr
 
     def query_and_save(self, query, params=None, location=os.curdir, file_name='result'):
